@@ -1,0 +1,5 @@
+#+title: Readme
+#+author: Hugh JF Chen
+
+collect-java-dump is a simple tool based jattach to help generate java threadump and heapdump for diagnozing java application
+problems.

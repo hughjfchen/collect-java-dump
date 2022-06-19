@@ -24,6 +24,11 @@ set +u
 [ -e "$HOME"/.nix-profile/etc/profile.d/nix.sh ] && . "$HOME"/.nix-profile/etc/profile.d/nix.sh
 set -u
 
+# clean the reference file each time before build
+# so that we can build a full pack tarball for distribution every time
+rm -fr "/nix/var/reference-file/my-collect-java-dump-$1-$2.reference*"
+rm -fr "/nix/var/reference-file-static/my-collect-java-dump-$1-$2*"
+
 # build the boundle for the specific release target
 nix-build ./release.nix --arg site \""$1"\" --arg phase \""$2"\" --attr "mk-my-release-packer" --out-link "mk-my-release-packer"
 
