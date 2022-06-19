@@ -38,12 +38,15 @@ let
       (lib.generators.toKeyValue { }) my-collect-java-dump-config.collector;
   };
 
-  my-collect-java-dump-bin-sh = nPkgs.writeShellApplication {
+  my-collect-java-dump-bin-sh = nPkgs.writeTextFile rec {
     name = lib.concatStringsSep "-" [ pkgName "bin" "sh" ];
-    runtimeInputs = [ nativePkgs.collect-java-dump ];
+    executable = true;
+    destination = "/bin/${name}";
     # wrap the executable, suppose it accept a --config commandl ine option to load the config
     text = ''
-      ${nativePkgs.collect-java-dump.name} --config.file="${my-collect-java-dump-config-file}" "$@"
+      #!/usr/bin/env bash
+      export PATH="${sPkgs.collect-java-dump}/bin:$PATH"
+      ${sPkgs.collect-java-dump.name} --config.file="${my-collect-java-dump-config-file}" "$@"
     '';
   };
 

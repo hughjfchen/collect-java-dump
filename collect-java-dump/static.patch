@@ -1,0 +1,13 @@
+diff --git a/Makefile b/Makefile
+index 6b91dea..d8aa446 100644
+--- a/Makefile
++++ b/Makefile
+@@ -36,7 +36,7 @@ build:
+ 	mkdir -p build
+ 
+ build/jattach: src/posix/*.c src/posix/*.h
+-	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DJATTACH_VERSION=\"$(JATTACH_VERSION)\" -o $@ src/posix/*.c
++	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -static -s -DJATTACH_VERSION=\"$(JATTACH_VERSION)\" -o $@ src/posix/*.c
+ 
+ build/$(JATTACH_DLL): src/posix/*.c src/posix/*.h
+ 	$(CC) $(CPPFLAGS) $(CFLAGS) $(LDFLAGS) -DJATTACH_VERSION=\"$(JATTACH_VERSION)\" -fPIC -shared -fvisibility=hidden -o $@ src/posix/*.c

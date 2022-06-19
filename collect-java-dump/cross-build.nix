@@ -7,5 +7,10 @@ defaultPlatformProject.pkgs.lib.mapAttrs (_: pkgs: rec {
 
   inherit pkgs;
 
-}) toBuild
+  jattach =
+    pkgs.jattach.overrideAttrs (oldAttrs: { patches = [ ./static.patch ]; });
 
+  collect-java-dump =
+    defaultPlatformProject.mk-collect-java-dump { jattachPkg = jattach; };
+
+}) toBuild
