@@ -13,7 +13,7 @@ SCRIPT_ABS_PATH=$(turn_to_absolute_path "$0")
 
 begin_banner "Top level" "project deploy - generic"
 
-if [ $# != 2 ]; then
+if [ $# -lt 2 ]; then
     echo "usage: $(basename "$0") deployTargetSite releasePhase"
     exit 125
 fi
@@ -24,13 +24,15 @@ set +u
 [ -e "$HOME"/.nix-profile/etc/profile.d/nix.sh ] && . "$HOME"/.nix-profile/etc/profile.d/nix.sh
 set -u
 
-# clean the reference file each time before build
-# so that we can build a full pack tarball for distribution every time
-rm -fr "/nix/var/reference-file/my-collect-java-dump-$1-$2.reference*"
-rm -fr "/nix/var/reference-file-static/my-collect-java-dump-$1-$2*"
-
 # build the boundle for the specific release target
 nix-build ./release.nix --arg site \""$1"\" --arg phase \""$2"\" --attr "mk-my-release-packer" --out-link "mk-my-release-packer"
+
+# full pack if "$3=full"
+# clean the reference file each time before build
+# so that we can build a full pack tarball for distribution every time
+rm -fr "/nix/var/reference-file/my-collect-java-dump-$1-$2.reference"
+rm -fr "/nix/var/reference-file/my-collect-java-dump-$1-$2.reference.delta"
+rm -fr "/nix/var/reference-file-static/my-collect-java-dump-$1-$2"
 
 # pack the build artifact up with the dependencies
 "$SCRIPT_ABS_PATH/mk-my-release-packer/bin/mk-release-packer-for-$1-$2"

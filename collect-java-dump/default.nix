@@ -31,12 +31,15 @@ let
           local FULLEXE
           local PROCESSWD
           local PROCESSUSER
-          local JDKTYPE
+          local JVMNAME
+          local JVMTYPE
           local DUMPDATE
           local DUMPTIME
           local ENV_IBM_JAVACOREDIR
           local ENV_IBM_HEAPDUMPDIR
           local ENV_TMPDIR
+          local THREADDUMPFILE
+          local HEAPDUMPFILE
 
           MYPID=$1
           SECONDSTOSLEEP=30
@@ -51,47 +54,96 @@ let
 
           PROCESSWD="$(pwdx "$MYPID" | awk '{print $NF}')"
           PROCESSUSER="$(ps -eo user,pid | awk -v mypid="$MYPID" '$2==mypid {print $1}')"
-          # JVMTYPE="$($FULLEXE -XshowSettings:properties -version 2>&1 | awk -F' = ' '/java.vm.name/ {print $2}')"
+          JVMNAME="$($FULLEXE -XshowSettings:properties -version 2>&1 | awk -F' = ' '/java.vm.name/ {print $2}')"
+
+          # get the jvm type
+          # TODO: shall we add a IBM J9 type? Not sure, leave it for now. 20220623
+          JVMTYPE=""
+          for THEJVMTYPE in "OpenJDK" "HotSpot" "OpenJ9"
+          do
+            if echo "$JVMNAME" | grep "$THEJVMTYPE" > /dev/null; then
+               JVMTYPE="$THEJVMTYPE"
+            fi
+          done
+
+          WASPROCESS="$(ps -eo pid,cmd|awk -v mypid="$MYPID" '$1==mypid {print $0}'|grep -w "com.ibm.ws.bootstrap.WSLauncher")"
+          # only support the list JVM or WAS
+          if  [ "X$JVMTYPE" == "X" ] && [ "X$WASPROCESS" == "X" ]; then
+            echo "Process $MYPID with JVM type $JVMNAME not supported or not a WebSphere Application Server process either, abort."
+            exit 110
+          fi
 
           DUMPDATE=$(date "+%Y%m%d")
           DUMPTIME=$(date "+%H%M%S")
           # looks like jattach can support HostSpot VM and OpenJ9 VM,
-          # so use jattach to generate dumps for every type of JVM
-          # only WebSphere is an exception.
-          WASPROCESS="$(ps -eo pid,cmd|awk -v mypid="$MYPID" '$1==mypid {print $0}'|grep -q -w "com.ibm.ws.bootstrap.WSLauncher")"
-          if [ "X$WASPROCESS" != "X" ]; then
-             sudo su --shell /usr/bin/bash --command "kill -3 $MYPID" "$PROCESSUSER"
+          # so use jattach to generate dumps for both types of JVM
+          # only WebSphere with non-OpenJ9 VM is an exception.
+          if [ "X$WASPROCESS" != "X" ] && [ "X$JVMTYPE" != "XOpenJ9" ]; then
+             if [ "$PROCESSUSER" == "$(id -nu)" ]; then
+                kill -3 "$MYPID"
+             else
+                sudo su --shell /usr/bin/bash --command "kill -3 $MYPID" "$PROCESSUSER"
+             fi
 
              # need to wait some time for the dump files finishing generated
              sleep "$SECONDSTOSLEEP"
 
              # now find the generated dumps
+             # the order to search is ENV IBM_XXXXDIR -> WorkingDir -> ENV TMPDIR -> /tmp
              # under environment varibale IBM_JAVACOREDIR/IBM_HEAPDUMPDIR/TMPDIR, the working directory of the process or /tmp
-             ENV_IBM_JAVACOREDIR="$(strings /proc/$MYPID/environ | awk -F'=' '/IBM_JAVACOREDIR/ {print $2}')"
-             ENV_IBM_HEAPDUMPDIR="$(strings /proc/$MYPID/environ | awk -F'=' '/IBM_HEAPDUMPDIR/ {print $2}')"
-             ENV_TMPDIR="$(strings /proc/$MYPID/environ | awk -F'=' '/TMPDIR/ {print $2}')"
+             ENV_IBM_JAVACOREDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/IBM_JAVACOREDIR/ {print $2}')"
+             ENV_IBM_HEAPDUMPDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/IBM_HEAPDUMPDIR/ {print $2}')"
+             ENV_TMPDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/TMPDIR/ {print $2}')"
 
-             if [ "X$ENV_IBM_JAVACOREDIR" != "X" ] && [ -d "$ENV_IBM_JAVACOREDIR" ]; then
-                find "$ENV_IBM_JAVACOREDIR" ! -path "$ENV_IBM_JAVACOREDIR" -prune -name "javacore.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1
+             # notice that the search path order is really very important.
+             JAVACORESEARCHDIR=""
+             for THEJAVACORESEARCHDIR in "/tmp" "$ENV_TMPDIR" "$PROCESSWD" "$ENV_IBM_JAVACOREDIR"
+             do
+                if [ "X$THEJAVACORESEARCHDIR" != "X" ] && [ -d "$THEJAVACORESEARCHDIR" ]; then
+                   JAVACORESEARCHDIR="$THEJAVACORESEARCHDIR"
+                fi
+             done
+
+             HEAPDUMPSEARCHDIR=""
+             for THEHEAPDUMPSEARCHDIR in "/tmp" "$ENV_TMPDIR" "$PROCESSWD" "$ENV_IBM_HEAPDUMPDIR"
+             do
+                if [ "X$THEHEAPDUMPSEARCHDIR" != "X" ] && [ -d "$THEHEAPDUMPSEARCHDIR" ]; then
+                   HEAPDUMPSEARCHDIR="$THEHEAPDUMPSEARCHDIR"
+                fi
+             done
+
+             THREADDUMPFILE=$(find "$JAVACORESEARCHDIR" ! -path "$JAVACORESEARCHDIR" -prune -name "javacore.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1)
+             HEAPDUMPFILE=$(find "$HEAPDUMPSEARCHDIR" ! -path "$HEAPDUMPSEARCHDIR" -prune -name "heapdump.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1)
+
+             if [ "X$THREADDUMPFILE" == "X" ] && [ "X$HEAPDUMPFILE" == "X" ]; then
+                 echo "cannot find the generated java dump files for WebSphere"
+                 exit 122
+             else
+                 echo "$THREADDUMPFILE"
+                 echo "$HEAPDUMPFILE"
              fi
-             if [ "X$ENV_IBM_HEAPDUMPDIR" != "X" ] && [ -d "$ENV_IBM_HEAPDUMPDIR" ]; then
-                find "$ENV_IBM_HEAPDUMPDIR" ! -path "$ENV_IBM_HEAPDUMPDIR" -prune -name "heapdump.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1
-             fi
-             find "$PROCESSWD" ! -path "$PROCESSWD" -prune -name "javacore.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1
-             find "$PROCESSWD" ! -path "$PROCESSWD" -prune -name "heapdump.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1
-             if [ "X$ENV_TMPDIR" != "X" ] && [ -d "$ENV_TMPDIR" ]; then
-                find "$ENV_TMPDIR" ! -path "$ENV_TMPDIR" -prune -name "javacore.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1
-                find "$ENV_TMPDIR" ! -path "$ENV_TMPDIR" -prune -name "heapdump.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1
-             fi
-             find /tmp ! -path /tmp -prune -name "javacore.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1
-             find /tmp ! -path /tmp -prune -name "heapdump.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1
           else
-            THREADDUMPFILE="/tmp/threaddump.$MYPID.$DUMPDATE.$DUMPTIME.threaddump"
-            HEAPDUMPFILE="/tmp/heapdump.$MYPID.$DUMPDATE.$DUMPTIME.hprof"
-            sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID threaddump > $THREADDUMPFILE" "$PROCESSUSER"
-            sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID dumpheap $HEAPDUMPFILE > /dev/null" "$PROCESSUSER"
-            echo "$THREADDUMPFILE"
-            echo "$HEAPDUMPFILE"
+             if [ "$JVMTYPE" == "OpenJ9" ]; then
+                THREADDUMPFILE="/tmp/javacore.$DUMPDATE.$DUMPTIME.$MYPID.txt"
+                HEAPDUMPFILE="/tmp/heapdump.$DUMPDATE.$DUMPTIME.$MYPID.phd"
+             else
+                THREADDUMPFILE="/tmp/threaddump.$MYPID.$DUMPDATE.$DUMPTIME.threaddump"
+                HEAPDUMPFILE="/tmp/heapdump.$MYPID.$DUMPDATE.$DUMPTIME.hprof"
+             fi
+             if [ "$PROCESSUSER" == "$(id -nu)" ]; then
+                ${jattachPkg}/bin/jattach "$MYPID" threaddump > "$THREADDUMPFILE"
+                ${jattachPkg}/bin/jattach "$MYPID" dumpheap "$HEAPDUMPFILE" > /dev/null
+             else
+                sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID threaddump > $THREADDUMPFILE" "$PROCESSUSER"
+                sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID dumpheap $HEAPDUMPFILE > /dev/null" "$PROCESSUSER"
+             fi
+             if [ -e "$THREADDUMPFILE" ] && [ -e "$HEAPDUMPFILE" ]; then
+                 echo "$THREADDUMPFILE"
+                 echo "$HEAPDUMPFILE"
+             else
+                 echo "cannot find the generated java dump files"
+                 exit 122
+             fi
           fi
         }
 
