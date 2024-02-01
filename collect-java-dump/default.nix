@@ -219,9 +219,8 @@ let
                 go "$GIVEN_PID"
               fi
            else
-             echo "Usage: collect-java-dump command collect <Java Process PID|WebSphere Application Server Name> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
-             echo "The second argument must be 'collect'"
-             exit 129
+             # for other command, just ignore
+             exit 0
            fi
         else
            echo "Usage: collect-java-dump command collect <Java Process PID|WebSphere Application Server Name> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
