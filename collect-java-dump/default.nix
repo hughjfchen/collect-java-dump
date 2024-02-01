@@ -25,6 +25,9 @@ let
       text = ''
         #!/usr/bin/env bash
 
+        # set debug for now
+        set -x
+
         # some utility functions
         is_uint() {
           case $1 in
@@ -179,6 +182,10 @@ let
         # the first command line arg is the path to a config file
         # and the second command line arg is the command, should be "collect"
         # we leave it as if for now
+
+        # for debug
+        echo "$@"
+
         if [ "$#" -eq 3 ] || [ "$#" -eq 4 ]; then
 
            # only when we get the command "collect"
