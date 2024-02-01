@@ -28,7 +28,7 @@ let
         # some utility functions
         is_uint() {
           case $1 in
-            \'\'|*[!0-9]*) return 1 ;;
+            ''"'""'"''|*[!0-9]*) return 1 ;;
             *) return 0 ;;
           esac
         }
