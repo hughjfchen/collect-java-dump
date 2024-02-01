@@ -17,13 +17,22 @@ in { nativePkgs ? import nixpkgsSrc (nixpkgsArgs // {
 let
   pkgs = nativePkgs;
   # 'cabalProject' generates a package set based on a cabal.project (and the corresponding .cabal files)
-  mk-collect-java-dump = { jattachPkg, ... }:
+  mk-collect-java-dump = { jattachPkg, java-surgeryPkg, ... }:
     pkgs.writeTextFile rec {
       name = "collect-java-dump";
       executable = true;
       destination = "/bin/${name}";
       text = ''
         #!/usr/bin/env bash
+
+        # some utility functions
+        is_uint() {
+          case $1 in
+            \'\'|*[!0-9]*) return 1 ;;
+            *) return 0 ;;
+          esac
+        }
+
         # main working hourse
         go() {
           local MYPID
@@ -41,13 +50,11 @@ let
           local THREADDUMPFILE
           local HEAPDUMPFILE
 
+
           MYPID=$1
-          SECONDSTOSLEEP=30
+          SECONDSTOSLEEP=5
 
-          # we only support Linux
-          [ "Linux" != "$(uname)" ] && echo "This script only supports Linux currently" && exit 1
-
-          [ "$#" -ge 2 ] && SECONDSTOSLEEP="$2"
+          [ "$#" -eq 2 ] && SECONDSTOSLEEP="$2"
 
           # is it a valid PID?
           [ ! -e /proc/"$MYPID" ] && echo "invalid PID $MYPID" && exit 125
@@ -62,121 +69,157 @@ let
 
           # get the jvm type
           # TODO: shall we add a IBM J9 type? Not sure, leave it for now. 20220623
+          # DONE: added IBM J9 support based on Java Surgery. 20240201
           JVMTYPE=""
-          for THEJVMTYPE in "OpenJDK" "HotSpot" "OpenJ9"
+          for THEJVMTYPE in "OpenJDK" "HotSpot" "OpenJ9" "IBM J9"
           do
             if echo "$JVMNAME" | grep "$THEJVMTYPE" > /dev/null; then
                JVMTYPE="$THEJVMTYPE"
             fi
           done
 
-          WASPROCESS="$(ps -eo pid,cmd|awk -v mypid="$MYPID" '$1==mypid {print $0}'|grep -w "com.ibm.ws.bootstrap.WSLauncher")"
-          # only support the list JVM or WAS
-          if  [ "X$JVMTYPE" == "X" ] && [ "X$WASPROCESS" == "X" ]; then
-            echo "Process $MYPID with JVM type $JVMNAME not supported or not a WebSphere Application Server process either, abort."
-            exit 110
-          fi
-
           DUMPDATE=$(date "+%Y%m%d")
           DUMPTIME=$(date "+%H%M%S")
-          # looks like jattach can support HostSpot VM and OpenJ9 VM,
-          # so use jattach to generate dumps for both types of JVM
-          # only WebSphere with non-OpenJ9 VM is an exception.
-          if [ "X$WASPROCESS" != "X" ] && [ "X$JVMTYPE" != "XOpenJ9" ]; then
-             if [ "$PROCESSUSER" == "$(id -nu)" ]; then
-                kill -3 "$MYPID"
-             else
-                sudo su --shell /usr/bin/bash --command "kill -3 $MYPID" "$PROCESSUSER"
-             fi
 
-             # need to wait some time for the dump files finishing generated
-             sleep "$SECONDSTOSLEEP"
+          # looks like jattach can support OpenJDK/HostSpot VM and OpenJ9 VM,
+          # so use jattach to generate dumps for these three types of JVM
+          # only IBM J9 VM is an exception.
+          case "$JVMTYPE" in
+            "OpenJDK"|"HotSpot")
+               THREADDUMPFILE="/tmp/threaddump.$MYPID.$DUMPDATE.$DUMPTIME.threaddump"
+               HEAPDUMPFILE="/tmp/heapdump.$MYPID.$DUMPDATE.$DUMPTIME.hprof"
+               if [ "$PROCESSUSER" == "$(id -nu)" ]; then
+                 ${jattachPkg}/bin/jattach "$MYPID" threaddump > "$THREADDUMPFILE"
+                 ${jattachPkg}/bin/jattach "$MYPID" dumpheap "$HEAPDUMPFILE" > /dev/null
+               else
+                 sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID threaddump > $THREADDUMPFILE" "$PROCESSUSER"
+                 sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID dumpheap $HEAPDUMPFILE > /dev/null" "$PROCESSUSER"
+               fi
+               if [ -e "$THREADDUMPFILE" ] && [ -e "$HEAPDUMPFILE" ]; then
+                 echo "$THREADDUMPFILE"
+                 echo "$HEAPDUMPFILE"
+               else
+                 echo "cannot find the generated javadump/heapdump files"
+                 exit 122
+               fi
+               ;;
+            "OpenJ9")
+               THREADDUMPFILE="/tmp/javacore.$DUMPDATE.$DUMPTIME.$MYPID.txt"
+               HEAPDUMPFILE="/tmp/heapdump.$DUMPDATE.$DUMPTIME.$MYPID.phd"
+               if [ "$PROCESSUSER" == "$(id -nu)" ]; then
+                 ${jattachPkg}/bin/jattach "$MYPID" threaddump > "$THREADDUMPFILE"
+                 ${jattachPkg}/bin/jattach "$MYPID" dumpheap "$HEAPDUMPFILE" > /dev/null
+               else
+                 sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID threaddump > $THREADDUMPFILE" "$PROCESSUSER"
+                 sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID dumpheap $HEAPDUMPFILE > /dev/null" "$PROCESSUSER"
+               fi
+               if [ -e "$THREADDUMPFILE" ] && [ -e "$HEAPDUMPFILE" ]; then
+                 echo "$THREADDUMPFILE"
+                 echo "$HEAPDUMPFILE"
+               else
+                 echo "cannot find the generated javadump/heapdump files"
+                 exit 122
+               fi
+               ;;
+            "IBM J9")
+               THREADDUMPFILE="/tmp/javacore.$DUMPDATE.$DUMPTIME.$MYPID.txt"
+               HEAPDUMPFILE="/tmp/heapdump.$DUMPDATE.$DUMPTIME.$MYPID.phd"
+               if [ "$PROCESSUSER" == "$(id -nu)" ]; then
+                 "$FULLEXE" -jar ${java-surgeryPkg}/share/java/surgery.jar -pid "$MYPID" JavaDump
+                 "$FULLEXE" -jar ${java-surgeryPkg}/share/java/surgery.jar -pid "$MYPID" HeapDump
+               else
+                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg}/share/java/surgery.jar -pid $MYPID JavaDump" "$PROCESSUSER"
+                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg}/share/java/surgery.jar -pid $MYPID HeapDump" "$PROCESSUSER"
+               fi
 
-             # now find the generated dumps
-             # the order to search is ENV IBM_XXXXDIR -> WorkingDir -> ENV TMPDIR -> /tmp
-             # under environment varibale IBM_JAVACOREDIR/IBM_HEAPDUMPDIR/TMPDIR, the working directory of the process or /tmp
-             ENV_IBM_JAVACOREDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/IBM_JAVACOREDIR/ {print $2}')"
-             ENV_IBM_HEAPDUMPDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/IBM_HEAPDUMPDIR/ {print $2}')"
-             ENV_TMPDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/TMPDIR/ {print $2}')"
+               # need to wait some time for the dump files finishing generated
+               sleep "$SECONDSTOSLEEP"
 
-             # notice that the search path order is really very important.
-             JAVACORESEARCHDIR=""
-             for THEJAVACORESEARCHDIR in "/tmp" "$ENV_TMPDIR" "$PROCESSWD" "$ENV_IBM_JAVACOREDIR"
-             do
-                if [ "X$THEJAVACORESEARCHDIR" != "X" ] && [ -d "$THEJAVACORESEARCHDIR" ]; then
+               # now find the generated dumps
+               # the order to search is ENV IBM_XXXXDIR -> WorkingDir -> ENV TMPDIR -> /tmp
+               # under environment varibale IBM_JAVACOREDIR/IBM_HEAPDUMPDIR/TMPDIR, the working directory of the process or /tmp
+               ENV_IBM_JAVACOREDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/IBM_JAVACOREDIR/ {print $2}')"
+               ENV_IBM_HEAPDUMPDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/IBM_HEAPDUMPDIR/ {print $2}')"
+               ENV_TMPDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/TMPDIR/ {print $2}')"
+
+               # notice that the search path order is really very important.
+               JAVACORESEARCHDIR=""
+               for THEJAVACORESEARCHDIR in "/tmp" "$ENV_TMPDIR" "$PROCESSWD" "$ENV_IBM_JAVACOREDIR"
+               do
+                 if [ "X$THEJAVACORESEARCHDIR" != "X" ] && [ -d "$THEJAVACORESEARCHDIR" ]; then
                    JAVACORESEARCHDIR="$THEJAVACORESEARCHDIR"
-                fi
-             done
+                 fi
+               done
 
-             HEAPDUMPSEARCHDIR=""
-             for THEHEAPDUMPSEARCHDIR in "/tmp" "$ENV_TMPDIR" "$PROCESSWD" "$ENV_IBM_HEAPDUMPDIR"
-             do
-                if [ "X$THEHEAPDUMPSEARCHDIR" != "X" ] && [ -d "$THEHEAPDUMPSEARCHDIR" ]; then
+               HEAPDUMPSEARCHDIR=""
+               for THEHEAPDUMPSEARCHDIR in "/tmp" "$ENV_TMPDIR" "$PROCESSWD" "$ENV_IBM_HEAPDUMPDIR"
+               do
+                 if [ "X$THEHEAPDUMPSEARCHDIR" != "X" ] && [ -d "$THEHEAPDUMPSEARCHDIR" ]; then
                    HEAPDUMPSEARCHDIR="$THEHEAPDUMPSEARCHDIR"
-                fi
-             done
+                 fi
+               done
 
-             THREADDUMPFILE=$(find "$JAVACORESEARCHDIR" ! -path "$JAVACORESEARCHDIR" -prune -name "javacore.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1)
-             HEAPDUMPFILE=$(find "$HEAPDUMPSEARCHDIR" ! -path "$HEAPDUMPSEARCHDIR" -prune -name "heapdump.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1)
+               THREADDUMPFILE=$(find "$JAVACORESEARCHDIR" ! -path "$JAVACORESEARCHDIR" -prune -name "javacore.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1)
+               HEAPDUMPFILE=$(find "$HEAPDUMPSEARCHDIR" ! -path "$HEAPDUMPSEARCHDIR" -prune -name "heapdump.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1)
 
-             if [ "X$THREADDUMPFILE" == "X" ] && [ "X$HEAPDUMPFILE" == "X" ]; then
-                 echo "cannot find the generated java dump files for WebSphere"
+               if [ "X$THREADDUMPFILE" == "X" ] && [ "X$HEAPDUMPFILE" == "X" ]; then
+                 echo "cannot find the generated javadump/heapdump files for IBM J9 VM"
                  exit 122
-             else
+               else
                  echo "$THREADDUMPFILE"
                  echo "$HEAPDUMPFILE"
-             fi
-          else
-             if [ "$JVMTYPE" == "OpenJ9" ]; then
-                THREADDUMPFILE="/tmp/javacore.$DUMPDATE.$DUMPTIME.$MYPID.txt"
-                HEAPDUMPFILE="/tmp/heapdump.$DUMPDATE.$DUMPTIME.$MYPID.phd"
-             else
-                THREADDUMPFILE="/tmp/threaddump.$MYPID.$DUMPDATE.$DUMPTIME.threaddump"
-                HEAPDUMPFILE="/tmp/heapdump.$MYPID.$DUMPDATE.$DUMPTIME.hprof"
-             fi
-             if [ "$PROCESSUSER" == "$(id -nu)" ]; then
-                ${jattachPkg}/bin/jattach "$MYPID" threaddump > "$THREADDUMPFILE"
-                ${jattachPkg}/bin/jattach "$MYPID" dumpheap "$HEAPDUMPFILE" > /dev/null
-             else
-                sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID threaddump > $THREADDUMPFILE" "$PROCESSUSER"
-                sudo su --shell /usr/bin/bash --command "${jattachPkg}/bin/jattach $MYPID dumpheap $HEAPDUMPFILE > /dev/null" "$PROCESSUSER"
-             fi
-             if [ -e "$THREADDUMPFILE" ] && [ -e "$HEAPDUMPFILE" ]; then
-                 echo "$THREADDUMPFILE"
-                 echo "$HEAPDUMPFILE"
-             else
-                 echo "cannot find the generated java dump files"
-                 exit 122
-             fi
-          fi
+               fi
+               ;;
+            *) echo "Not supported JVM type, currently only support OpenJDK, HotSpot, OpenJ9 and IBM J9"
+               exit 110
+               ;;
+          esac
+
         }
 
-        # only when we get the command "collect"
-        if [ "$#" -ge 2 ]; then
+        # check command line args
+        # the first command line arg is the path to a config file
+        # and the second command line arg is the command, should be "collect"
+        # we leave it as if for now
+        if [ "$#" -eq 3 ] || [ "$#" -eq 4 ]; then
+
+           # only when we get the command "collect"
            if [ "$2" == "collect" ]; then
+
               # currently, only linux is supported
               [ "$(uname -s)" != "Linux" ] && echo "This is a non-linux machine. Only Linux is supported." && exit 128
 
               # this script need to be run with root or having sudo permission
-              [ $EUID -ne 0 ] && ! sudo echo >/dev/null 2>&1 && echo "need to run with root or sudo without password" && exit 127
+              [ $EUID -ne 0 ] && ! sudo echo >/dev/null 2>&1 && echo "need to run with root or sudo without password prompt" && exit 127
 
-              # check command line args
-              # the first command line arg is the path to a config file
-              # and the second command line arg is the command, should be "collect"
-              # we leave it as if for now
-              if [ "$#" -ge 3 ]; then
-                 if [ "$#" -ge 4 ]; then
-                    go "$3" "$4"
-                 else
-                    go "$3"
-                 fi
+              # if the given argument is not a integer PID, try to treat it as a WebSphere application server name
+              # and search the appropriate PID for that server
+              GIVEN_PID=""
+              if is_uint "$3"; then
+                GIVEN_PID="$3"
               else
-                echo "Usage: collect-java-dump <Java Process PID> [Seconds to wait for dump finishing generated, default to 30 if not provided]"
-                exit 129
+                # search the PID using the given argument as a WAS server name
+                WAS_PID="$(ps -eo pid,cmd|grep -w "com.ibm.ws.bootstrap.WSLauncher")"|awk -v myserver="$3" '$NF==myserver {print $1}'
+                if [ "X$WAS_PID" == "X" ]; then
+                  echo "The given argument neither a PID nor a valid WebSphere application server name, abort."
+                  exit 130
+                else
+                  GIVEN_PID="$WAS_PID"
+                fi
               fi
+
+              if [ "$#" -eq 4 ]; then
+                go "$GIVEN_PID" "$4"
+              else
+                go "$GIVEN_PID"
+              fi
+           else
+             echo "Usage: collect-java-dump command collect <Java Process PID> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
+             echo "The second argument must be 'collect'"
+             exit 129
            fi
         else
-           echo "Usage: collect-java-dump command collect <Java Process PID> [Seconds to wait for dump finishing generated, default to 30 if not provided]"
+           echo "Usage: collect-java-dump command collect <Java Process PID> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
            exit 129
         fi
 
@@ -192,5 +235,5 @@ in {
   inherit mk-collect-java-dump;
 
   # use writeScriptBin instead to reduce the packed bundle size
-  collect-java-dump = mk-collect-java-dump { jattachPkg = pkgs.jattach; };
+  collect-java-dump = mk-collect-java-dump { jattachPkg = pkgs.jattach; java-surgeryPkg = pkgs.java-surgery; };
 }
