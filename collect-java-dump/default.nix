@@ -122,8 +122,6 @@ let
                fi
                ;;
             "IBM J9")
-               THREADDUMPFILE="/tmp/javacore.$DUMPDATE.$DUMPTIME.$MYPID.txt"
-               HEAPDUMPFILE="/tmp/heapdump.$DUMPDATE.$DUMPTIME.$MYPID.phd"
                if [ "$PROCESSUSER" == "$(id -nu)" ]; then
                  "$FULLEXE" -jar ${java-surgeryPkg}/share/java/surgery.jar -pid "$MYPID" JavaDump
                  "$FULLEXE" -jar ${java-surgeryPkg}/share/java/surgery.jar -pid "$MYPID" HeapDump
@@ -214,12 +212,12 @@ let
                 go "$GIVEN_PID"
               fi
            else
-             echo "Usage: collect-java-dump command collect <Java Process PID> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
+             echo "Usage: collect-java-dump command collect <Java Process PID|WebSphere Application Server Name> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
              echo "The second argument must be 'collect'"
              exit 129
            fi
         else
-           echo "Usage: collect-java-dump command collect <Java Process PID> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
+           echo "Usage: collect-java-dump command collect <Java Process PID|WebSphere Application Server Name> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
            exit 129
         fi
 
