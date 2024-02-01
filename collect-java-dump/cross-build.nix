@@ -11,6 +11,6 @@ defaultPlatformProject.pkgs.lib.mapAttrs (_: pkgs: rec {
     pkgs.jattach.overrideAttrs (oldAttrs: { patches = [ ./static.patch ]; });
 
   collect-java-dump =
-    defaultPlatformProject.mk-collect-java-dump { jattachPkg = jattach; };
+    defaultPlatformProject.mk-collect-java-dump { jattachPkg = jattach; java-surgeryPkg = pkgs.java-surgery; };
 
 }) toBuild
