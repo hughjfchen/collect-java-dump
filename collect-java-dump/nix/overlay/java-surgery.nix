@@ -9,7 +9,7 @@ prev.stdenv.mkDerivation {
   src = builtins.fetchurl {
     url =
       "https://public.dhe.ibm.com/software/websphere/appserv/support/tools/surgery/surgery.jar";
-    sha256 = "";
+    sha256 = "055bpij9qpk44shpa46rzf6dcykb4av4dkgp9mgzp79ymvf1zs5p";
   };
   dontBuild = true;
   dontUnpack = true;
