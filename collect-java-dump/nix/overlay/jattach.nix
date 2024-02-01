@@ -4,13 +4,13 @@ self: prev:
 # adapted based on the Makefile of the package source tree
 prev.stdenv.mkDerivation rec {
   pname = "jattach";
-  version = "2.0";
+  version = "2.2";
 
   src = prev.fetchFromGitHub {
     owner = "apangin";
     repo = "jattach";
     rev = "v${version}";
-    sha256 = "t9uYK9CMQqijngLLFVJ5ZEF2pYi13DUeiMKQBNF8ltw=";
+    sha256 = "xHorLGzTsmU7tHkBRLF8yqx2FlgtNtJg6iYVlXYgRjI=";
   };
 
   # patch to build static lib, refer to:

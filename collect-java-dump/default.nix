@@ -43,6 +43,10 @@ let
 
           MYPID=$1
           SECONDSTOSLEEP=30
+
+          # we only support Linux
+          [ "Linux" != "$(uname)" ] && echo "This script only supports Linux currently" && exit 1
+
           [ "$#" -ge 2 ] && SECONDSTOSLEEP="$2"
 
           # is it a valid PID?
