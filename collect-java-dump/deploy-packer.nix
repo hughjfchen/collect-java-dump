@@ -206,7 +206,7 @@ let
           if [ -e ${env.runDir}/stop.sh ]; then
             # do not do any output, because the app may rely on its output to function properly
             # echo "stopping ${execName}"
-            {env.runDir}/stop.sh "$@"
+            ${env.runDir}/stop.sh "$@"
           fi
 
           # since the payload path changed for every deployment,
@@ -221,7 +221,7 @@ let
 
           # do not do any output, because the app may rely on its output to function properly
           # echo "starting the program ${execName}"
-          {env.runDir}/start.sh "$@"
+          ${env.runDir}/start.sh "$@"
           # do not do any output, because the app may rely on its output to function properly
           # echo "check the scripts under ${env.runDir} to start or stop the program."''])}
 
