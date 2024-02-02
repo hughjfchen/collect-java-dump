@@ -183,9 +183,6 @@ let
         # and the second command line arg is the command, should be "collect"
         # we leave it as if for now
 
-        # for debug
-        echo "$@"
-
         if [ "$#" -eq 3 ] || [ "$#" -eq 4 ]; then
 
            # only when we get the command "collect"
@@ -223,8 +220,13 @@ let
              exit 0
            fi
         else
-           echo "Usage: collect-java-dump command collect <Java Process PID|WebSphere Application Server Name> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
-           exit 129
+           if [ "$2" == "collect" ]; then
+             echo "Usage: collect-java-dump <Java Process PID|WebSphere Application Server Name> [Seconds to wait for dump finishing generated, default to 5 if not provided]"
+             exit 129
+           else
+             # ignore other command for now
+             exit 0
+           fi
         fi
 
       '';
