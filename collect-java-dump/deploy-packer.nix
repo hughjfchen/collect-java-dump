@@ -186,6 +186,7 @@ let
         do
           if [ ! -d "$dirToMk" ]; then
              sudo mkdir -p "$dirToMk"
+             sudo chmod -R 755 "$dirToMk"
              sudo chown -R ${env.processUser}:${env.processUser} "$dirToMk"
           fi
         done
