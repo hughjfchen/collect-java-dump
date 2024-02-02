@@ -185,8 +185,7 @@ let
         for dirToMk in "${env.runDir}" "${env.dataDir}"
         do
           if [ ! -d "$dirToMk" ]; then
-             sudo mkdir -p "$dirToMk"
-             sudo chmod -R 755 "$dirToMk"
+             sudo -E mkdir -p "$dirToMk"
              sudo chown -R ${env.processUser}:${env.processUser} "$dirToMk"
           fi
         done
