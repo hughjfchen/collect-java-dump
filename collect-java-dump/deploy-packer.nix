@@ -211,13 +211,13 @@ let
 
           # since the payload path changed for every deployment,
           # the start/stop scripts must be generated each deployment
-          echo "#!/usr/bin/env bash" | sudo -u ${env.processUser} tee ${env.runDir}/start.sh > /dev/null
-          echo "exec ${payloadPath}/bin/${execName} ${startCmd} \"\$@\"" | sudo -u ${env.processUser} tee -a ${env.runDir}/start.sh > /dev/null
+          echo "#!/usr/bin/env bash" | sudo su -c 'tee ${env.runDir}/start.sh > /dev/null' ${env.processUser}
+          echo "exec ${payloadPath}/bin/${execName} ${startCmd} \"\$@\"" | sudo su -c 'tee -a ${env.runDir}/start.sh > /dev/null' ${env.processUser}
 
-          echo "#!/usr/bin/env bash" | sudo -u ${env.processUser} tee ${env.runDir}/stop.sh > /dev/null
-          echo "exec ${payloadPath}/bin/${execName} ${stopCmd} \"\$@\"" | sudo -u ${env.processUser} tee -a ${env.runDir}/stop.sh > /dev/null
+          echo "#!/usr/bin/env bash" | sudo su -c 'tee ${env.runDir}/stop.sh > /dev/null' ${env.processUser}
+          echo "exec ${payloadPath}/bin/${execName} ${stopCmd} \"\$@\"" | sudo su -c 'tee -a ${env.runDir}/stop.sh > /dev/null' ${env.processUser}
 
-          sudo -u ${env.processUser} chmod 755 ${env.runDir}/start.sh ${env.runDir}/stop.sh
+          sudo su -c 'chmod 755 ${env.runDir}/start.sh ${env.runDir}/stop.sh' ${env.processUser}
 
           # do not do any output, because the app may rely on its output to function properly
           # echo "starting the program ${execName}"
