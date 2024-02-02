@@ -169,6 +169,8 @@ let
       text = ''
         #!/usr/bin/env bash
 
+        set -x
+
         # this script need to be run with root or having sudo permission
         [ $EUID -ne 0 ] && ! sudo echo >/dev/null 2>&1 && echo "need to run with root or sudo without password" && exit 127
 
@@ -211,15 +213,13 @@ let
 
           # since the payload path changed for every deployment,
           # the start/stop scripts must be generated each deployment
-          sudo sh -c 'echo "#!/usr/bin/env bash" > ${env.runDir}/start.sh'
-          sudo sh -c 'echo "exec ${payloadPath}/bin/${execName} ${startCmd} \"\$@\"" >> ${env.runDir}/start.sh'
+          sudo -u ${env.processUser} -- sh -c 'echo "#!/usr/bin/env bash" > ${env.runDir}/start.sh'
+          sudo -u ${env.processUser} -- sh -c 'echo "exec ${payloadPath}/bin/${execName} ${startCmd} \"\$@\"" >> ${env.runDir}/start.sh'
 
-          sudo sh -c 'echo "#!/usr/bin/env bash" > ${env.runDir}/stop.sh'
-          sudo sh -c 'echo "exec ${payloadPath}/bin/${execName} ${stopCmd} \"\$@\"" >> ${env.runDir}/stop.sh'
+          sudo -u ${env.processUser} -- sh -c 'echo "#!/usr/bin/env bash" > ${env.runDir}/stop.sh'
+          sudo -u ${env.processUser} -- sh -c 'echo "exec ${payloadPath}/bin/${execName} ${stopCmd} \"\$@\"" >> ${env.runDir}/stop.sh'
 
-          sudo chmod 755 ${env.runDir}/start.sh ${env.runDir}/stop.sh
-          sudo chown ${env.processUser}:${env.processUser} ${env.runDir}/start.sh
-          sudo chown ${env.processUser}:${env.processUser} ${env.runDir}/stop.sh
+          sudo -u ${env.processUser} -- chmod 755 ${env.runDir}/start.sh ${env.runDir}/stop.sh
 
           # do not do any output, because the app may rely on its output to function properly
           # echo "starting the program ${execName}"
