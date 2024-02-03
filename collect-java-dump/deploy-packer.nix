@@ -169,8 +169,6 @@ let
       text = ''
         #!/usr/bin/env bash
 
-        set -x
-
         # this script need to be run with root or having sudo permission
         [ $EUID -ne 0 ] && ! sudo echo >/dev/null 2>&1 && echo "need to run with root or sudo without password" && exit 127
 
