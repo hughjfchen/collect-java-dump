@@ -185,7 +185,7 @@ let
         for dirToMk in "${env.runDir}" "${env.dataDir}"
         do
           if [ ! -d "$dirToMk" ]; then
-             sudo -E mkdir -p "$dirToMk"
+             sudo -- sh -c "UMASK=0022 mkdir -p \"$dirToMk\""
              sudo chown -R ${env.processUser}:${env.processUser} "$dirToMk"
           fi
         done
