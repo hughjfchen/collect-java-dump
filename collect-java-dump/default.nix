@@ -126,11 +126,11 @@ let
                ;;
             "IBM J9")
                if [ "$PROCESSUSER" == "$(id -nu)" ]; then
-                 "$FULLEXE" -jar ${java-surgeryPkg}/share/java/surgery.jar -pid "$MYPID" JavaDump
-                 "$FULLEXE" -jar ${java-surgeryPkg}/share/java/surgery.jar -pid "$MYPID" HeapDump
+                 "$FULLEXE" -jar ${java-surgeryPkg.src} -pid "$MYPID" JavaDump
+                 "$FULLEXE" -jar ${java-surgeryPkg.src} -pid "$MYPID" HeapDump
                else
-                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg}/share/java/surgery.jar -pid $MYPID JavaDump" "$PROCESSUSER"
-                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg}/share/java/surgery.jar -pid $MYPID HeapDump" "$PROCESSUSER"
+                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -pid $MYPID JavaDump" "$PROCESSUSER"
+                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -pid $MYPID HeapDump" "$PROCESSUSER"
                fi
 
                # need to wait some time for the dump files finishing generated
