@@ -25,9 +25,6 @@ let
       text = ''
         #!/usr/bin/env bash
 
-        # set debug for now
-        set -x
-
         # some utility functions
         is_uint() {
           case $1 in
@@ -43,6 +40,7 @@ let
           local FULLEXE
           local PROCESSWD
           local PROCESSUSER
+          local JVMVERSION
           local JVMNAME
           local JVMTYPE
           local DUMPDATE
@@ -65,6 +63,10 @@ let
           FULLEXE="$(readlink -f /proc/"$MYPID"/exe)"
 
           [ "$(echo "$FULLEXE" | awk -F"/" '{print $NF}')" != "java" ] && echo "the process $MYPID not a java process" && exit 125
+
+          # check jvm version, we only support jdk8 plus
+          JVMVERSION="$($FULLEXE -fullversion 2>&1|awk -F'.' '{print $2}')"
+          [ $JVMVERSION -lt 8 ] && echo "Only JDK 8 and above supported, however your JDK is $JVMVERSION" && exit 122
 
           PROCESSWD="$(pwdx "$MYPID" | awk '{print $NF}')"
           PROCESSUSER="$(ps -eo user,pid | awk -v mypid="$MYPID" '$2==mypid {print $1}')"
@@ -206,7 +208,7 @@ let
                 GIVEN_PID="$3"
               else
                 # search the PID using the given argument as a WAS server name
-                WAS_PID="$(ps -eo pid,cmd|grep -w "com.ibm.ws.bootstrap.WSLauncher")"|awk -v myserver="$3" '$NF==myserver {print $1}'
+                WAS_PID="$(ps -eo pid,cmd|grep -w "com.ibm.ws.bootstrap.WSLauncher"|awk -v myserver="$3" '$NF==myserver {print $1}')"
                 if [ "X$WAS_PID" == "X" ]; then
                   echo "The given argument neither a PID nor a valid WebSphere application server name, abort."
                   exit 130
