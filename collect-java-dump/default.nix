@@ -68,7 +68,7 @@ let
 
           PROCESSWD="$(pwdx "$MYPID" | awk '{print $NF}')"
           PROCESSUSER="$(ps -eo user,pid | awk -v mypid="$MYPID" '$2==mypid {print $1}')"
-          JVMNAME="$($FULLEXE -XshowSettings:properties -version 2>&1 | awk -F' = ' '/java.vm.name/ {print $2}')"
+          JVMNAME="$($FULLEXE -version 2>&1 | grep -v grep | grep ' VM ' | grep 'build')"
 
           # get the jvm type
           # TODO: shall we add a IBM J9 type? Not sure, leave it for now. 20220623
