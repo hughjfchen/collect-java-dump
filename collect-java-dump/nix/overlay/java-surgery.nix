@@ -17,5 +17,6 @@ prev.stdenv.mkDerivation {
   installPhase = ''
     mkdir -p $out/share/java
     cp $src $out/share/java/
+    ln -s $out/share/java/surgery.jar $src
   '';
 }
