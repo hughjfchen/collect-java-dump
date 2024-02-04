@@ -125,12 +125,17 @@ let
                fi
                ;;
             "IBM J9")
+               # prepare the java surgery agent
+               # i.e. link the jar to the user's home dir
+               rm -fr $HOME/surgery.jar
+               ln -s ${java-surgeryPkg.src} $HOME/surgery.jar
+
                if [ "$PROCESSUSER" == "$(id -nu)" ]; then
-                 "$FULLEXE" -jar ${java-surgeryPkg.src} -pid "$MYPID" JavaDump
-                 "$FULLEXE" -jar ${java-surgeryPkg.src} -pid "$MYPID" HeapDump
+                 "$FULLEXE" -jar ${java-surgeryPkg.src} -command JavaDump -pid "$MYPID"
+                 "$FULLEXE" -jar ${java-surgeryPkg.src} -command HeapDump -pid "$MYPID"
                else
-                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -pid $MYPID JavaDump" "$PROCESSUSER"
-                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -pid $MYPID HeapDump" "$PROCESSUSER"
+                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command JavaDump -pid $MYPID" "$PROCESSUSER"
+                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command HeapDump -pid $MYPID" "$PROCESSUSER"
                fi
 
                # need to wait some time for the dump files finishing generated
