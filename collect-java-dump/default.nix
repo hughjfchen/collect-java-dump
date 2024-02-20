@@ -133,11 +133,11 @@ let
                ln -s ${java-surgeryPkg.src} $HOME/surgery.jar
 
                if [ "$PROCESSUSER" == "$(id -nu)" ]; then
-                 "$FULLEXE" -jar ${java-surgeryPkg.src} -command JavaDump -pid "$MYPID"
-                 "$FULLEXE" -jar ${java-surgeryPkg.src} -command HeapDump -pid "$MYPID"
+                 "$FULLEXE" -jar ${java-surgeryPkg.src} -command JavaDump -pid "$MYPID" > /dev/null 2>&1
+                 "$FULLEXE" -jar ${java-surgeryPkg.src} -command HeapDump -pid "$MYPID" > /dev/null 2>&1
                else
-                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command JavaDump -pid $MYPID" "$PROCESSUSER"
-                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command HeapDump -pid $MYPID" "$PROCESSUSER"
+                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command JavaDump -pid $MYPID > /dev/null 2>&1" "$PROCESSUSER"
+                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command HeapDump -pid $MYPID > /dev/null 2>&1" "$PROCESSUSER"
                fi
 
                # clean up the agent jar
