@@ -144,7 +144,9 @@ let
                rm -fr $HOME/surgery.jar
 
                # need to wait some time for the dump files finishing generated
-               sleep "$SECONDSTOSLEEP"
+               # Do we really still need this?
+               # comment out for now
+               # sleep "$SECONDSTOSLEEP"
 
                # now find the generated dumps
                # the order to search is ENV IBM_XXXXDIR -> WorkingDir -> ENV TMPDIR -> /tmp
