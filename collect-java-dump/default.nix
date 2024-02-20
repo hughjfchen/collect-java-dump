@@ -64,10 +64,6 @@ let
 
           [ "$(echo "$FULLEXE" | awk -F"/" '{print $NF}')" != "java" ] && echo "the process $MYPID not a java process" && exit 125
 
-          # check jvm version, we only support jdk8 plus
-          JVMVERSION="$($FULLEXE -fullversion 2>&1|awk -F'.' '{print $2}')"
-          [ $JVMVERSION -lt 8 ] && echo "Only JDK 8 and above supported, however your JDK is $JVMVERSION" && exit 122
-
           PROCESSWD="$(pwdx "$MYPID" | awk '{print $NF}')"
           PROCESSUSER="$(ps -eo user,pid | awk -v mypid="$MYPID" '$2==mypid {print $1}')"
           JVMNAME="$($FULLEXE -version 2>&1 | grep -v grep | grep ' VM ' | grep 'build')"
@@ -127,6 +123,10 @@ let
                fi
                ;;
             "IBM J9")
+               # check jvm version, for IBM J9 VM, we only support jdk8 plus
+               JVMVERSION="$($FULLEXE -fullversion 2>&1|awk -F'.' '{print $2}')"
+               [ $JVMVERSION -lt 8 ] && echo "Only JDK 8 and above supported, however your JDK is $JVMVERSION" && exit 122
+
                # prepare the java surgery agent
                # i.e. link the jar to the user's home dir
                rm -fr $HOME/surgery.jar
@@ -139,6 +139,9 @@ let
                  sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command JavaDump -pid $MYPID" "$PROCESSUSER"
                  sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command HeapDump -pid $MYPID" "$PROCESSUSER"
                fi
+
+               # clean up the agent jar
+               rm -fr $HOME/surgery.jar
 
                # need to wait some time for the dump files finishing generated
                sleep "$SECONDSTOSLEEP"
