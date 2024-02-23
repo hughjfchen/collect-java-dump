@@ -4,6 +4,18 @@
 collect-java-dump is a simple tool based on [[https://github.com/jattach/jattach][jattach]] and [[https://www.ibm.com/support/pages/ibm-runtime-diagnostic-code-injection-java-platform-java-surgery][IBM Java Surgery]] to help generate
 java threadump and heapdump for diagnozing java application problems.
 
+* Why would you need this?
+
+After all, there should be java on the host where the application was running and
+you want to collect dumps, why would I need this?
+
+Well, there're some situations you would like this script:
+1. Only JRE installed on the machine where your java application's running and
+   that means you cannot use the java tools to collect dumps because they're
+   included in JDK. This situation is very common for a container environment.
+2. There're a couple of different JDKs and the ways to collect dumps are
+   different. You don't want to bother these.
+
 * Supported JVMs
 
 Currently, the following JVMs would be supported by this script:
