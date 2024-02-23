@@ -1,7 +1,7 @@
 #+title: Readme
 #+author: Hugh JF Chen
 
-collect-java-dump is a simple tool based [[https://github.com/jattach/jattach][jattach]] and [[https://www.ibm.com/support/pages/ibm-runtime-diagnostic-code-injection-java-platform-java-surgery][IBM Java Surgery]] to help generate
+collect-java-dump is a simple tool based on [[https://github.com/jattach/jattach][jattach]] and [[https://www.ibm.com/support/pages/ibm-runtime-diagnostic-code-injection-java-platform-java-surgery][IBM Java Surgery]] to help generate
 java threadump and heapdump for diagnozing java application problems.
 
 * Supported JVMs
@@ -16,3 +16,14 @@ Currently, the following JVMs would be supported by this script:
 
 The ~jattach~ and the ~IBM Java Surgery~ have been packaged into the script so just
 run the script giving the PID of the JVM or the WebSphere application server name.
+For example:
+#+begin_example
+ my-collect-java-dump-any-production-dist-yyyymmddhhMMss.sh <PID of the JVM> | <WebSphere application server name>
+#+end_example
+
+* Note
+
+Following must be noticed while using this script:
+- This script must run with root or a user with sudo and no need to prompt password
+- For WebSphere application server, the JDK must be above 8
+- Heapdump may be very large, so it takes time for generating heapdump
