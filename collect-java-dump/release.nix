@@ -16,19 +16,22 @@ let
   ];
 
   # define some utility function for release packing ( code adapted from setup-systemd-units.nix )
-  deploy-packer = import ./deploy-packer.nix {
+  deploy-packer = import (builtins.fetchGit { url = "https://github.com/hughjfchen/deploy-packer"; }) {
     inherit lib;
     pkgs = nPkgs;
   };
 
   # the deployment env
   my-collect-java-dump-env =
-    (import ../env/site/${site}/phase/${phase}/env.nix { pkgs = nPkgs; }).env;
+    (import (builtins.fetchGit { url = "https://github.com/hughjfchen/deploy-env"; }) { pkgs = nPkgs;
+                                                                                 modules = [];
+                                                                               }).env;
   # the config
   my-collect-java-dump-config =
-    (import ../config/site/${site}/phase/${phase}/config.nix {
+    (import (builtins.fetchGit { url = "https://github.com/hughjfchen/deploy-config"; }) {
       pkgs = nPkgs;
       env = my-collect-java-dump-env;
+      modules = [];
     }).config;
 
   my-collect-java-dump-config-file = nPkgs.writeTextFile {

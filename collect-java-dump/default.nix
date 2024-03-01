@@ -17,7 +17,7 @@ in { nativePkgs ? import nixpkgsSrc (nixpkgsArgs // {
 let
   pkgs = nativePkgs;
   # 'cabalProject' generates a package set based on a cabal.project (and the corresponding .cabal files)
-  mk-collect-java-dump = { jattachPkg, java-surgeryPkg, ... }:
+  mk-collect-java-dump = { jattachPkg, ... }:
     pkgs.writeTextFile rec {
       name = "collect-java-dump";
       executable = true;
@@ -70,7 +70,6 @@ let
 
           # get the jvm type
           # TODO: shall we add a IBM J9 type? Not sure, leave it for now. 20220623
-          # DONE: added IBM J9 support based on Java Surgery. 20240201
           JVMTYPE=""
           for THEJVMTYPE in "OpenJDK" "HotSpot" "OpenJ9" "IBM J9"
           do
@@ -104,7 +103,7 @@ let
                  exit 122
                fi
                ;;
-            "OpenJ9")
+            "OpenJ9|IBM J9")
                THREADDUMPFILE="/tmp/javacore.$DUMPDATE.$DUMPTIME.$MYPID.txt"
                HEAPDUMPFILE="/tmp/heapdump.$DUMPDATE.$DUMPTIME.$MYPID.phd"
                if [ "$PROCESSUSER" == "$(id -nu)" ]; then
@@ -120,67 +119,6 @@ let
                else
                  echo "cannot find the generated javadump/heapdump files"
                  exit 122
-               fi
-               ;;
-            "IBM J9")
-               # check jvm version, for IBM J9 VM, we only support jdk8 plus
-               JVMVERSION="$($FULLEXE -fullversion 2>&1|awk -F'.' '{print $2}')"
-               [ $JVMVERSION -lt 8 ] && echo "Only JDK 8 and above supported, however your JDK is $JVMVERSION" && exit 122
-
-               # prepare the java surgery agent
-               # i.e. link the jar to the user's home dir
-               rm -fr $HOME/surgery.jar
-               ln -s ${java-surgeryPkg.src} $HOME/surgery.jar
-
-               if [ "$PROCESSUSER" == "$(id -nu)" ]; then
-                 "$FULLEXE" -jar ${java-surgeryPkg.src} -command JavaDump -pid "$MYPID" > /dev/null 2>&1
-                 "$FULLEXE" -jar ${java-surgeryPkg.src} -command HeapDump -pid "$MYPID" > /dev/null 2>&1
-               else
-                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command JavaDump -pid $MYPID > /dev/null 2>&1" "$PROCESSUSER"
-                 sudo su --shell /usr/bin/bash --command "$FULLEXE -jar ${java-surgeryPkg.src} -command HeapDump -pid $MYPID > /dev/null 2>&1" "$PROCESSUSER"
-               fi
-
-               # clean up the agent jar
-               rm -fr $HOME/surgery.jar
-
-               # need to wait some time for the dump files finishing generated
-               # Do we really still need this?
-               # comment out for now
-               # sleep "$SECONDSTOSLEEP"
-
-               # now find the generated dumps
-               # the order to search is ENV IBM_XXXXDIR -> WorkingDir -> ENV TMPDIR -> /tmp
-               # under environment varibale IBM_JAVACOREDIR/IBM_HEAPDUMPDIR/TMPDIR, the working directory of the process or /tmp
-               ENV_IBM_JAVACOREDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/IBM_JAVACOREDIR/ {print $2}')"
-               ENV_IBM_HEAPDUMPDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/IBM_HEAPDUMPDIR/ {print $2}')"
-               ENV_TMPDIR="$(strings /proc/"$MYPID"/environ | awk -F'=' '/TMPDIR/ {print $2}')"
-
-               # notice that the search path order is really very important.
-               JAVACORESEARCHDIR=""
-               for THEJAVACORESEARCHDIR in "/tmp" "$ENV_TMPDIR" "$PROCESSWD" "$ENV_IBM_JAVACOREDIR"
-               do
-                 if [ "X$THEJAVACORESEARCHDIR" != "X" ] && [ -d "$THEJAVACORESEARCHDIR" ]; then
-                   JAVACORESEARCHDIR="$THEJAVACORESEARCHDIR"
-                 fi
-               done
-
-               HEAPDUMPSEARCHDIR=""
-               for THEHEAPDUMPSEARCHDIR in "/tmp" "$ENV_TMPDIR" "$PROCESSWD" "$ENV_IBM_HEAPDUMPDIR"
-               do
-                 if [ "X$THEHEAPDUMPSEARCHDIR" != "X" ] && [ -d "$THEHEAPDUMPSEARCHDIR" ]; then
-                   HEAPDUMPSEARCHDIR="$THEHEAPDUMPSEARCHDIR"
-                 fi
-               done
-
-               THREADDUMPFILE=$(find "$JAVACORESEARCHDIR" ! -path "$JAVACORESEARCHDIR" -prune -name "javacore.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1)
-               HEAPDUMPFILE=$(find "$HEAPDUMPSEARCHDIR" ! -path "$HEAPDUMPSEARCHDIR" -prune -name "heapdump.$DUMPDATE.*.$MYPID.*" -print0 | xargs -r0 ls -t | head -1)
-
-               if [ "X$THREADDUMPFILE" == "X" ] && [ "X$HEAPDUMPFILE" == "X" ]; then
-                 echo "cannot find the generated javadump/heapdump files for IBM J9 VM"
-                 exit 122
-               else
-                 echo "$THREADDUMPFILE"
-                 echo "$HEAPDUMPFILE"
                fi
                ;;
             *) echo "Not supported JVM type, currently only support OpenJDK, HotSpot, OpenJ9 and IBM J9"
@@ -253,5 +191,5 @@ in {
   inherit mk-collect-java-dump;
 
   # use writeScriptBin instead to reduce the packed bundle size
-  collect-java-dump = mk-collect-java-dump { jattachPkg = pkgs.jattach; java-surgeryPkg = pkgs.java-surgery; };
+  collect-java-dump = mk-collect-java-dump { jattachPkg = pkgs.jattach; };
 }
