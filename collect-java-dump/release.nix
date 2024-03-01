@@ -24,14 +24,14 @@ let
   # the deployment env
   my-collect-java-dump-env =
     (import (builtins.fetchGit { url = "https://github.com/hughjfchen/deploy-env"; }) { pkgs = nPkgs;
-                                                                                 modules = [];
+                                                                                 modules = [ ../env/site/${site}/phase/${phase}/collector.nix ];
                                                                                }).env;
   # the config
   my-collect-java-dump-config =
     (import (builtins.fetchGit { url = "https://github.com/hughjfchen/deploy-config"; }) {
       pkgs = nPkgs;
       env = my-collect-java-dump-env;
-      modules = [];
+      modules = [ ../config/site/${site}/phase/${phase}/collector.nix ];
     }).config;
 
   my-collect-java-dump-config-file = nPkgs.writeTextFile {
